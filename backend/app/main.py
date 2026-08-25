@@ -41,6 +41,13 @@ app.include_router(routes_schools.router)
 app.include_router(routes_scores.router)
 app.include_router(routes_subscribers.router)
 
+try:
+    from distribution.whatsapp.bot import router as whatsapp_router
+
+    app.include_router(whatsapp_router)
+except ImportError:
+    pass
+
 bulletin_dir = Path(settings.bulletin_storage_dir)
 bulletin_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/bulletins", StaticFiles(directory=str(bulletin_dir)), name="bulletins")

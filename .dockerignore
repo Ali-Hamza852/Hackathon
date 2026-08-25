@@ -1,0 +1,13 @@
+.git
+.github
+frontend
+backend/.venv
+backend/tests
+backend/*.db
+backend/bulletins
+distribution/tests
+**/__pycache__
+**/*.pyc
+.env
+.env.local
+*.md
