@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: saans-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_RECOMPUTE_SECRET
+        sync: false
+      - key: WAQI_API_TOKEN
+        sync: false
+      - key: OPENAQ_API_KEY
+        sync: false
+      - key: OPENMETEO_BASE_URL
+        value: https://api.open-meteo.com/v1
+      - key: WHATSAPP_CLOUD_API_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+      - key: FRONTEND_BASE_URL
+        sync: false
+      - key: BULLETIN_STORAGE_DIR
+        value: ./bulletins

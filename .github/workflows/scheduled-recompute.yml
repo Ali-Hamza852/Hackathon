@@ -1,0 +1,19 @@
+name: Scheduled scoring cycle
+
+on:
+  schedule:
+    - cron: "0 1 * * *"
+    - cron: "0 7 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  recompute:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the backend's scoring cycle
+        run: |
+          curl -sf -X POST "${{ secrets.SAANS_BACKEND_URL }}/admin/recompute" \
+            -H "X-Admin-Secret: ${{ secrets.SAANS_ADMIN_SECRET }}" \
+            --max-time 90 \
+            --retry 2 \
+            --retry-delay 15
