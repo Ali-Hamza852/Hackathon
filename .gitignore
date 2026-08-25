@@ -6,6 +6,9 @@ venv/
 *.db-journal
 backend/bulletins/
 backend/data/
+/bulletins/
+test_distribution.db
+test_saans.db
 .env
 .env.local
 *.env
