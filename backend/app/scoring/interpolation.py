@@ -35,4 +35,4 @@ def estimate_aqi(nearby: list[tuple[float, HasStationLocation]]) -> tuple[float,
     weights = [1 / max(distance, 0.05) for distance, _ in nearby]
     total_weight = sum(weights)
     weighted_aqi = sum(w * r.aqi_value for w, (_, r) in zip(weights, nearby)) / total_weight
-    return weighted_aqi, nearest_distance
+    return round(weighted_aqi, 1), nearest_distance

@@ -1,17 +1,14 @@
 export function formatComputedAt(isoLike: string): string {
-  const [datePart, timePart] = isoLike.split("T");
-  if (!datePart || !timePart) return isoLike;
+  const utcMoment = new Date(isoLike.endsWith("Z") ? isoLike : `${isoLike}Z`);
+  if (Number.isNaN(utcMoment.getTime())) return isoLike;
 
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hourStr, minuteStr] = timePart.split(":");
-  const localMoment = new Date(year, month - 1, day, Number(hourStr), Number(minuteStr));
-
-  const formatted = localMoment.toLocaleString("en-US", {
+  const formatted = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Karachi",
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  });
+  }).format(utcMoment);
   return `${formatted} PKT`;
 }
 
