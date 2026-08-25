@@ -36,4 +36,19 @@ def register_subscriber(
 
 
 def find_school_by_name(db: Session, name: str) -> School | None:
-    return db.query(School).filter(School.name.ilike(f"%{name.strip()}%")).first()
+    cleaned = name.strip()
+    if not cleaned:
+        return None
+
+    exact_match = (
+        db.query(School).filter(School.name.ilike(cleaned)).order_by(School.name).first()
+    )
+    if exact_match:
+        return exact_match
+
+    return (
+        db.query(School)
+        .filter(School.name.ilike(f"%{cleaned}%"))
+        .order_by(School.name)
+        .first()
+    )

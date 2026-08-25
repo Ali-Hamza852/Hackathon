@@ -1,4 +1,4 @@
-import { DECISION_SUPPORT_DISCLAIMER, TIER_RECOMMENDATIONS } from "../constants/tiers";
+import { DECISION_SUPPORT_DISCLAIMER } from "../constants/tiers";
 import { formatComputedAt } from "../utils/formatting";
 import type { Score } from "../api/types";
 import { TierBadge } from "./TierBadge";
@@ -25,7 +25,7 @@ export function ScoreCard({ score, compact = false, onViewTrend }: ScoreCardProp
         <TierBadge tier={score.tier} size={compact ? "sm" : "md"} />
       </header>
 
-      <p className="text-sm text-slate-700">{TIER_RECOMMENDATIONS[score.tier]}</p>
+      <p className="text-sm text-slate-700">{score.recommendation}</p>
 
       <div className="flex flex-wrap items-center gap-2">
         <ConfidenceBadge confidence={score.confidence} />

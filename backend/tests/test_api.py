@@ -40,11 +40,22 @@ def test_schools_and_scores_round_trip(monkeypatch, seeded_schools):
         search_response = client.get("/schools", params={"q": "Direct"})
         assert len(search_response.json()) == 1
 
+        zone_via_q_response = client.get("/schools", params={"q": "Batapur"})
+        assert len(zone_via_q_response.json()) == 1
+        assert zone_via_q_response.json()[0]["name"] == "Far Interpolated School"
+
         recompute_response = client.post(
             "/admin/recompute", headers={"X-Admin-Secret": "test-secret"}
         )
         assert recompute_response.status_code == 200
         assert len(recompute_response.json()) == 2
+
+        second_recompute_response = client.post(
+            "/admin/recompute", headers={"X-Admin-Secret": "test-secret"}
+        )
+        assert {s["id"] for s in recompute_response.json()} == {
+            s["id"] for s in second_recompute_response.json()
+        }
 
         today_response = client.get("/scores/today")
         assert today_response.status_code == 200

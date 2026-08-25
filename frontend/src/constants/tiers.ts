@@ -6,12 +6,6 @@ export const TIER_LABELS: Record<Tier, string> = {
   red: "Red - High Risk",
 };
 
-export const TIER_RECOMMENDATIONS: Record<Tier, string> = {
-  green: "Outdoor activity, sports, and recess proceed as normal.",
-  amber: "Move recess and sports indoors; sensitive students should avoid outdoor exposure.",
-  red: "Recommend remote learning or an indoor-only day; flag to admin for a closure decision.",
-};
-
 export const DECISION_SUPPORT_DISCLAIMER =
   "Decision-support estimate - not a replacement for official Punjab EPA/health authority guidance.";
 

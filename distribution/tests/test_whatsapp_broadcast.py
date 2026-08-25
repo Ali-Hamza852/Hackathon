@@ -44,6 +44,17 @@ def test_send_whatsapp_message_success_needs_only_one_attempt():
     mock_post.assert_called_once()
 
 
+def test_send_whatsapp_message_strips_leading_plus_for_graph_api():
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+
+    with patch("distribution.whatsapp.bot.httpx.post", return_value=response) as mock_post:
+        send_whatsapp_message("+923001234567", "hello", _configured_settings())
+
+    sent_body = mock_post.call_args.kwargs["json"]
+    assert sent_body["to"] == "923001234567"
+
+
 def test_send_whatsapp_message_retries_once_then_fails():
     with patch(
         "distribution.whatsapp.bot.httpx.post", side_effect=httpx.ConnectTimeout("boom")
@@ -116,6 +127,67 @@ def test_on_scores_computed_skips_subscriber_whose_school_was_not_scored(db_sess
 
     logs = db_session.query(BroadcastLog).filter(BroadcastLog.subscriber_id == subscriber.id).all()
     assert logs == []
+
+
+def test_on_scores_computed_does_not_resend_after_already_sent(db_session, seeded_scores):
+    subscriber = _add_subscriber(db_session, seeded_scores[0].school_id)
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+
+    with patch("distribution.whatsapp.bot.httpx.post", return_value=response) as mock_post:
+        on_scores_computed(db_session, seeded_scores, _configured_settings())
+        on_scores_computed(db_session, seeded_scores, _configured_settings())
+
+    assert mock_post.call_count == 1
+    logs = db_session.query(BroadcastLog).filter(BroadcastLog.subscriber_id == subscriber.id).all()
+    assert len(logs) == 1
+    assert logs[0].status == BroadcastStatus.sent
+
+
+def test_on_scores_computed_retries_after_a_previous_failure(db_session, seeded_scores):
+    _add_subscriber(db_session, seeded_scores[0].school_id)
+
+    with patch("distribution.whatsapp.bot.httpx.post", side_effect=httpx.ConnectTimeout("boom")):
+        on_scores_computed(db_session, seeded_scores, _configured_settings())
+
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    with patch("distribution.whatsapp.bot.httpx.post", return_value=response):
+        on_scores_computed(db_session, seeded_scores, _configured_settings())
+
+    logs = db_session.query(BroadcastLog).all()
+    assert len(logs) == 2
+    assert [log.status for log in logs] == [BroadcastStatus.failed, BroadcastStatus.sent]
+
+
+def test_on_scores_computed_does_not_duplicate_skipped_log_when_rerun(db_session, seeded_scores):
+    subscriber = _add_subscriber(db_session, seeded_scores[0].school_id)
+
+    on_scores_computed(db_session, seeded_scores, _unconfigured_settings())
+    on_scores_computed(db_session, seeded_scores, _unconfigured_settings())
+
+    logs = db_session.query(BroadcastLog).filter(BroadcastLog.subscriber_id == subscriber.id).all()
+    assert len(logs) == 1
+    assert logs[0].status == BroadcastStatus.skipped
+
+
+def test_on_scores_computed_sends_once_credentials_are_added_after_a_skip(db_session, seeded_scores):
+    subscriber = _add_subscriber(db_session, seeded_scores[0].school_id)
+
+    on_scores_computed(db_session, seeded_scores, _unconfigured_settings())
+
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    with patch("distribution.whatsapp.bot.httpx.post", return_value=response):
+        on_scores_computed(db_session, seeded_scores, _configured_settings())
+
+    logs = (
+        db_session.query(BroadcastLog)
+        .filter(BroadcastLog.subscriber_id == subscriber.id)
+        .order_by(BroadcastLog.id)
+        .all()
+    )
+    assert [log.status for log in logs] == [BroadcastStatus.skipped, BroadcastStatus.sent]
 
 
 def test_on_scores_computed_keeps_going_after_one_subscriber_fails(db_session, seeded_scores):

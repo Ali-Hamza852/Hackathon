@@ -7,7 +7,14 @@ from app.schools.registry_loader import SEED_FILE_PATH
 
 def seed_schools() -> int:
     init_db()
-    schools = json.loads(SEED_FILE_PATH.read_text())
+    try:
+        schools = json.loads(SEED_FILE_PATH.read_text())
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            f"{SEED_FILE_PATH} not found - run `python -m app.schools.registry_loader` first"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"{SEED_FILE_PATH} is not valid JSON: {exc}") from exc
 
     db = SessionLocal()
     try:

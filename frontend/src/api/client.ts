@@ -21,16 +21,8 @@ export async function fetchSchoolTrend(schoolId: number, days = 7): Promise<Scor
 }
 
 export async function searchSchools(term: string): Promise<School[]> {
-  const [byName, byZone] = await Promise.all([
-    httpClient.get<School[]>("/schools", { params: { q: term } }),
-    httpClient.get<School[]>("/schools", { params: { zone: term } }),
-  ]);
-
-  const merged = new Map<number, School>();
-  for (const school of [...byName.data, ...byZone.data]) {
-    merged.set(school.id, school);
-  }
-  return Array.from(merged.values());
+  const response = await httpClient.get<School[]>("/schools", { params: { q: term } });
+  return response.data;
 }
 
 export function bulletinUrl(dateStr: string): string {

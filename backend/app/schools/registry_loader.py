@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-import httpx
-
+from app.ingestion.exceptions import AQIProviderError
+from app.ingestion.http_utils import request_json
 from app.schools.geo import is_within_lahore
 from app.schools.manual_schools import MANUAL_SCHOOLS
 
@@ -23,16 +23,17 @@ out center;
 
 
 def fetch_overpass_schools() -> list[dict]:
-    for attempt in range(2):
-        try:
-            response = httpx.post(
-                OVERPASS_URL, data={"data": OVERPASS_QUERY}, timeout=OVERPASS_TIMEOUT_SECONDS
-            )
-            response.raise_for_status()
-            return _parse_overpass_elements(response.json().get("elements", []))
-        except (httpx.HTTPError, ValueError):
-            continue
-    return []
+    try:
+        payload = request_json(
+            "overpass",
+            "POST",
+            OVERPASS_URL,
+            data={"data": OVERPASS_QUERY},
+            timeout=OVERPASS_TIMEOUT_SECONDS,
+        )
+    except AQIProviderError:
+        return []
+    return _parse_overpass_elements(payload.get("elements", []))
 
 
 def _parse_overpass_elements(elements: list[dict]) -> list[dict]:

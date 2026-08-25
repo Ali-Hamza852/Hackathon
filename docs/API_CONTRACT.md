@@ -8,7 +8,7 @@ Every score object below carries `tier`, `recommendation`, `confidence`, and `di
 Liveness check. `200 { "status": "ok" }`.
 
 ## `GET /schools`
-Query params: `zone` (substring match), `q` (name substring match), both optional.
+Query params, both optional: `q` (substring match against **either** name or zone — the general free-text search box), `zone` (substring match against zone only — narrows further, ANDed with `q` if both are given).
 Returns: `SchoolOut[]` — `{ id, name, zone, lat, lon, source }`, `source` is `"overpass" | "manual"`.
 
 ## `GET /schools/{id}`

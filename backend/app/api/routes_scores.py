@@ -35,7 +35,7 @@ def get_school_trend(school_id: int, days: int = 7, db: Session = Depends(get_db
     if school is None:
         raise HTTPException(status_code=404, detail="school not found")
 
-    cutoff = datetime.now(LAHORE_TIMEZONE).date() - timedelta(days=days)
+    cutoff = datetime.now(LAHORE_TIMEZONE).date() - timedelta(days=max(days - 1, 0))
     scores = (
         db.query(Score)
         .options(selectinload(Score.school))

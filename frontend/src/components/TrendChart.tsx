@@ -75,8 +75,8 @@ export function TrendChart({ schoolId }: TrendChartProps) {
         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
         <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#64748b" }} />
         <YAxis tick={{ fontSize: 12, fill: "#64748b" }} width={40} />
-        <ReferenceLine y={100} stroke="#F9A825" strokeDasharray="4 4" />
-        <ReferenceLine y={200} stroke="#C62828" strokeDasharray="4 4" />
+        <ReferenceLine y={100} stroke={TIER_COLORS.amber} strokeDasharray="4 4" />
+        <ReferenceLine y={200} stroke={TIER_COLORS.red} strokeDasharray="4 4" />
         <Tooltip
           formatter={(value) => [Math.round(Number(value)), "AQI"]}
           labelStyle={{ fontWeight: 600 }}

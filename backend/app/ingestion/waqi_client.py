@@ -26,18 +26,16 @@ def fetch_stations_in_bounds(
     readings = []
     for station in payload["data"]:
         try:
-            aqi_value = int(station["aqi"])
-        except (KeyError, ValueError):
-            continue
-        readings.append(
-            StationReading(
+            reading = StationReading(
                 station_id=str(station["uid"]),
                 lat=float(station["lat"]),
                 lon=float(station["lon"]),
-                aqi_value=aqi_value,
+                aqi_value=int(station["aqi"]),
                 pm25=None,
                 recorded_at=utc_now(),
                 source=ReadingSource.waqi,
             )
-        )
+        except (KeyError, ValueError, TypeError):
+            continue
+        readings.append(reading)
     return readings

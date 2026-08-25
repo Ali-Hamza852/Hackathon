@@ -39,6 +39,11 @@ def run_scoring_job(db: Session, settings: Settings) -> list[Score]:
     local_hour = datetime.now(LAHORE_TIMEZONE).hour
     score_date = datetime.now(LAHORE_TIMEZONE).date()
 
+    existing_scores_by_school_id = {
+        score.school_id: score
+        for score in db.query(Score).filter(Score.score_date == score_date).all()
+    }
+
     scores = []
     for school in schools:
         nearby = nearest_readings(school.lat, school.lon, readings)
@@ -49,19 +54,20 @@ def run_scoring_job(db: Session, settings: Settings) -> list[Score]:
         raw_aqi, distance_km = estimate
         adjusted_aqi = apply_adjustment(raw_aqi, local_hour, wind_forecast)
         tier = classify_tier(adjusted_aqi)
+        rounded_distance_km = round(distance_km, 2)
 
-        score = Score(
-            school_id=school.id,
-            score_date=score_date,
-            computed_at=utc_now(),
-            raw_aqi=raw_aqi,
-            adjusted_aqi=adjusted_aqi,
-            tier=tier,
-            recommendation=recommendation_for(tier),
-            confidence=classify_confidence(distance_km),
-            distance_to_station_km=round(distance_km, 2),
-        )
-        db.add(score)
+        score = existing_scores_by_school_id.get(school.id)
+        if score is None:
+            score = Score(school_id=school.id, score_date=score_date)
+            db.add(score)
+
+        score.computed_at = utc_now()
+        score.raw_aqi = raw_aqi
+        score.adjusted_aqi = adjusted_aqi
+        score.tier = tier
+        score.recommendation = recommendation_for(tier)
+        score.confidence = classify_confidence(rounded_distance_km)
+        score.distance_to_station_km = rounded_distance_km
         scores.append(score)
 
     db.commit()

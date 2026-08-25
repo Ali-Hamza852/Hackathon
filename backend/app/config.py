@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     whatsapp_cloud_api_token: str = ""
     whatsapp_phone_number_id: str = ""
     whatsapp_verify_token: str = "change-me-before-deploy"
+    whatsapp_app_secret: str = ""
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_from_number: str = ""

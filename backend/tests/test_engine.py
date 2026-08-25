@@ -1,5 +1,5 @@
 from app.config import get_settings
-from app.db.models import Confidence, ReadingSource, Tier
+from app.db.models import Confidence, ReadingSource, Score, Tier
 from app.ingestion.types import StationReading
 from app.scoring import engine
 from app.time_utils import utc_now
@@ -49,3 +49,24 @@ def test_no_readings_available_skips_scoring_without_crashing(monkeypatch, db_se
     scores = engine.run_scoring_job(db_session, get_settings())
 
     assert scores == []
+
+
+def test_rerunning_same_day_updates_existing_rows_instead_of_duplicating(
+    monkeypatch, db_session, seeded_schools
+):
+    monkeypatch.setattr(engine, "_fetch_wind_safely", lambda settings: None)
+    monkeypatch.setattr(engine, "apply_adjustment", lambda raw_aqi, hour, wind: raw_aqi)
+
+    monkeypatch.setattr(engine, "_gather_live_readings", lambda settings: [_reading(31.4705, 74.4105, 150)])
+    first_run = engine.run_scoring_job(db_session, get_settings())
+
+    monkeypatch.setattr(engine, "_gather_live_readings", lambda settings: [_reading(31.4705, 74.4105, 210)])
+    second_run = engine.run_scoring_job(db_session, get_settings())
+
+    all_scores_today = db_session.query(Score).all()
+    assert len(all_scores_today) == len(seeded_schools)
+    assert {score.id for score in first_run} == {score.id for score in second_run}
+
+    updated_direct_score = next(s for s in second_run if s.school.name == "Direct Hit School")
+    assert updated_direct_score.raw_aqi == 210
+    assert updated_direct_score.tier == Tier.red

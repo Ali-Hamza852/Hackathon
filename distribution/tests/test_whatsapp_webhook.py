@@ -1,3 +1,7 @@
+import hashlib
+import hmac
+import json
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -7,7 +11,7 @@ from app.db.session import get_db
 from distribution.whatsapp.bot import router
 
 
-def _client_for(db_session, verify_token="test-verify"):
+def _client_for(db_session, verify_token="test-verify", app_secret=""):
     app = FastAPI()
     app.include_router(router)
 
@@ -15,8 +19,15 @@ def _client_for(db_session, verify_token="test-verify"):
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_settings] = lambda: Settings(whatsapp_verify_token=verify_token)
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        whatsapp_verify_token=verify_token, whatsapp_app_secret=app_secret
+    )
     return TestClient(app)
+
+
+def _sign(body: bytes, app_secret: str) -> str:
+    digest = hmac.new(app_secret.encode(), body, hashlib.sha256).hexdigest()
+    return f"sha256={digest}"
 
 
 def test_webhook_verification_echoes_challenge_on_matching_token(db_session):
@@ -76,7 +87,7 @@ def test_webhook_inbound_subscribe_creates_subscriber(db_session, seeded_schools
     assert subscriber.school_id == target_school.id
 
 
-def test_webhook_inbound_subscribe_with_unknown_school_registers_with_null_school(db_session):
+def test_webhook_inbound_subscribe_with_unknown_school_registers_nobody(db_session):
     client = _client_for(db_session)
     payload = {
         "entry": [
@@ -100,8 +111,7 @@ def test_webhook_inbound_subscribe_with_unknown_school_registers_with_null_schoo
     subscriber = (
         db_session.query(Subscriber).filter(Subscriber.contact == "+923005556666").first()
     )
-    assert subscriber is not None
-    assert subscriber.school_id is None
+    assert subscriber is None
 
 
 def test_webhook_inbound_malformed_payload_still_returns_200(db_session):
@@ -124,3 +134,62 @@ def test_webhook_inbound_non_subscribe_message_is_ignored(db_session):
 
     assert response.status_code == 200
     assert db_session.query(Subscriber).filter(Subscriber.contact == "+923007778888").first() is None
+
+
+def test_webhook_rejects_payload_with_wrong_signature_when_app_secret_configured(db_session, seeded_schools):
+    client = _client_for(db_session, app_secret="shhh")
+    target_school = seeded_schools[0]
+    payload = {
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "messages": [
+                                {"from": "923001112222", "text": {"body": f"subscribe {target_school.name}"}}
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+
+    response = client.post(
+        "/whatsapp/webhook", json=payload, headers={"x-hub-signature-256": "sha256=wrongvalue"}
+    )
+
+    assert response.status_code == 200
+    assert db_session.query(Subscriber).filter(Subscriber.contact == "+923001112222").first() is None
+
+
+def test_webhook_accepts_payload_with_correct_signature_when_app_secret_configured(db_session, seeded_schools):
+    client = _client_for(db_session, app_secret="shhh")
+    target_school = seeded_schools[0]
+    payload = {
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "messages": [
+                                {"from": "923001112222", "text": {"body": f"subscribe {target_school.name}"}}
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+    body = json.dumps(payload).encode()
+
+    response = client.post(
+        "/whatsapp/webhook",
+        content=body,
+        headers={"content-type": "application/json", "x-hub-signature-256": _sign(body, "shhh")},
+    )
+
+    assert response.status_code == 200
+    subscriber = db_session.query(Subscriber).filter(Subscriber.contact == "+923001112222").first()
+    assert subscriber is not None
+    assert subscriber.school_id == target_school.id

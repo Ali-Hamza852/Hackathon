@@ -31,10 +31,7 @@ def fetch_locations_in_bounds(
     for location in locations:
         try:
             pm25, recorded_at = _find_latest_pm25(location["id"], headers)
-        except AQIProviderError:
-            continue
-        readings.append(
-            StationReading(
+            reading = StationReading(
                 station_id=str(location["id"]),
                 lat=location["coordinates"]["latitude"],
                 lon=location["coordinates"]["longitude"],
@@ -43,7 +40,9 @@ def fetch_locations_in_bounds(
                 recorded_at=recorded_at,
                 source=ReadingSource.openaq,
             )
-        )
+        except (AQIProviderError, KeyError, ValueError, TypeError):
+            continue
+        readings.append(reading)
     return readings
 
 

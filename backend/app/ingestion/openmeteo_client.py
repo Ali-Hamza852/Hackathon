@@ -1,10 +1,8 @@
 from dataclasses import dataclass
 
-import httpx
-
 from app.config import Settings
 from app.ingestion.exceptions import AQIProviderError
-from app.ingestion.http_utils import REQUEST_TIMEOUT_SECONDS
+from app.ingestion.http_utils import get_json
 
 FORECAST_WINDOW_HOURS = 12
 
@@ -21,22 +19,17 @@ def fetch_wind_forecast(lat: float, lon: float, settings: Settings) -> WindForec
         "latitude": lat,
         "longitude": lon,
         "hourly": "wind_speed_10m",
-        "forecast_days": 1,
+        "forecast_hours": FORECAST_WINDOW_HOURS,
         "timezone": "auto",
     }
-    last_error: Exception | None = None
-    for attempt in range(2):
-        try:
-            response = httpx.get(url, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
-            response.raise_for_status()
-            payload = response.json()
-            speeds = payload["hourly"]["wind_speed_10m"][:FORECAST_WINDOW_HOURS]
-            if not speeds:
-                raise AQIProviderError("openmeteo", "empty forecast series")
-            return WindForecast(
-                avg_wind_speed_kmh=sum(speeds) / len(speeds),
-                hours_covered=len(speeds),
-            )
-        except (httpx.HTTPError, ValueError, KeyError) as exc:
-            last_error = exc
-    raise AQIProviderError("openmeteo", str(last_error))
+    payload = get_json("openmeteo", url, params=params)
+
+    try:
+        speeds = payload["hourly"]["wind_speed_10m"]
+    except KeyError as exc:
+        raise AQIProviderError("openmeteo", f"unexpected response shape: {exc}") from exc
+
+    if not speeds:
+        raise AQIProviderError("openmeteo", "empty forecast series")
+
+    return WindForecast(avg_wind_speed_kmh=sum(speeds) / len(speeds), hours_covered=len(speeds))

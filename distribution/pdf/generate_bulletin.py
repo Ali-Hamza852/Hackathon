@@ -32,13 +32,12 @@ def on_scores_computed(db: Session, scores: list[Score], settings: Settings) -> 
         return
 
     bulletin_date = scores[0].score_date
-    output_dir = Path(settings.bulletin_storage_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"{bulletin_date.isoformat()}.pdf"
-
-    html = _render_html(scores, bulletin_date.isoformat())
 
     try:
+        output_dir = Path(settings.bulletin_storage_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / f"{bulletin_date.isoformat()}.pdf"
+        html = _render_html(scores, bulletin_date.isoformat())
         _render_html_to_pdf(html, output_path)
     except Exception:
         logger.exception("failed to render PDF bulletin for %s", bulletin_date)

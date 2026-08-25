@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.db.models import School
@@ -12,12 +13,12 @@ router = APIRouter(tags=["schools"])
 def list_schools(
     zone: str | None = None, q: str | None = None, db: Session = Depends(get_db)
 ) -> list[School]:
-    """List all seeded schools, optionally filtered by zone or a name search term."""
+    """List all seeded schools. `q` matches either name or zone; `zone` narrows further."""
     query = db.query(School)
+    if q:
+        query = query.filter(or_(School.name.ilike(f"%{q}%"), School.zone.ilike(f"%{q}%")))
     if zone:
         query = query.filter(School.zone.ilike(f"%{zone}%"))
-    if q:
-        query = query.filter(School.name.ilike(f"%{q}%"))
     return query.order_by(School.name).all()
 
 

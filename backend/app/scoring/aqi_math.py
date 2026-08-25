@@ -10,7 +10,7 @@ PM25_BREAKPOINTS = [
 
 
 def pm25_to_aqi(pm25: float) -> int:
-    clamped = max(0.0, min(pm25, PM25_BREAKPOINTS[-1][1]))
+    clamped = round(max(0.0, min(pm25, PM25_BREAKPOINTS[-1][1])), 1)
     for concentration_low, concentration_high, aqi_low, aqi_high in PM25_BREAKPOINTS:
         if concentration_low <= clamped <= concentration_high:
             ratio = (aqi_high - aqi_low) / (concentration_high - concentration_low)
