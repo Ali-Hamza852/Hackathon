@@ -1,0 +1,177 @@
+[
+  {
+    "name": "Lahore Grammar School, DHA Phase 5",
+    "zone": "DHA",
+    "lat": 31.473,
+    "lon": 74.413,
+    "source": "manual"
+  },
+  {
+    "name": "Beaconhouse School System, DHA Phase 6",
+    "zone": "DHA",
+    "lat": 31.4685,
+    "lon": 74.4225,
+    "source": "manual"
+  },
+  {
+    "name": "The City School, DHA Campus",
+    "zone": "DHA",
+    "lat": 31.465,
+    "lon": 74.4055,
+    "source": "manual"
+  },
+  {
+    "name": "Roots Millennium School, DHA Phase 4",
+    "zone": "DHA",
+    "lat": 31.4795,
+    "lon": 74.4015,
+    "source": "manual"
+  },
+  {
+    "name": "LACAS DHA Campus",
+    "zone": "DHA",
+    "lat": 31.461,
+    "lon": 74.416,
+    "source": "manual"
+  },
+  {
+    "name": "Government Model High School, Model Town",
+    "zone": "Model Town",
+    "lat": 31.4825,
+    "lon": 74.3225,
+    "source": "manual"
+  },
+  {
+    "name": "Beaconhouse School System, Model Town",
+    "zone": "Model Town",
+    "lat": 31.4855,
+    "lon": 74.318,
+    "source": "manual"
+  },
+  {
+    "name": "The City School, Model Town Campus",
+    "zone": "Model Town",
+    "lat": 31.4795,
+    "lon": 74.3265,
+    "source": "manual"
+  },
+  {
+    "name": "Crescent Model Higher Secondary School",
+    "zone": "Model Town",
+    "lat": 31.487,
+    "lon": 74.331,
+    "source": "manual"
+  },
+  {
+    "name": "Learning Alliance School, Model Town",
+    "zone": "Model Town",
+    "lat": 31.477,
+    "lon": 74.3195,
+    "source": "manual"
+  },
+  {
+    "name": "Aitchison College",
+    "zone": "Gulberg",
+    "lat": 31.5395,
+    "lon": 74.332,
+    "source": "manual"
+  },
+  {
+    "name": "Lahore Grammar School, Gulberg",
+    "zone": "Gulberg",
+    "lat": 31.5095,
+    "lon": 74.3455,
+    "source": "manual"
+  },
+  {
+    "name": "Convent of Jesus and Mary, Gulberg",
+    "zone": "Gulberg",
+    "lat": 31.5225,
+    "lon": 74.3495,
+    "source": "manual"
+  },
+  {
+    "name": "Kinnaird College Model School",
+    "zone": "Gulberg",
+    "lat": 31.548,
+    "lon": 74.3395,
+    "source": "manual"
+  },
+  {
+    "name": "Garrison Education System, Gulberg",
+    "zone": "Gulberg",
+    "lat": 31.506,
+    "lon": 74.354,
+    "source": "manual"
+  },
+  {
+    "name": "Government Comprehensive High School, Township",
+    "zone": "Township",
+    "lat": 31.4455,
+    "lon": 74.286,
+    "source": "manual"
+  },
+  {
+    "name": "The Educators, Township Campus",
+    "zone": "Township",
+    "lat": 31.439,
+    "lon": 74.2795,
+    "source": "manual"
+  },
+  {
+    "name": "Superior Group of Colleges, Township",
+    "zone": "Township",
+    "lat": 31.451,
+    "lon": 74.291,
+    "source": "manual"
+  },
+  {
+    "name": "Divisional Public School, Township",
+    "zone": "Township",
+    "lat": 31.434,
+    "lon": 74.283,
+    "source": "manual"
+  },
+  {
+    "name": "City Model School, Township",
+    "zone": "Township",
+    "lat": 31.447,
+    "lon": 74.2745,
+    "source": "manual"
+  },
+  {
+    "name": "Government Girls High School, Batapur",
+    "zone": "Batapur",
+    "lat": 31.534,
+    "lon": 74.495,
+    "source": "manual"
+  },
+  {
+    "name": "Al-Raazi School System, Batapur Road",
+    "zone": "Batapur",
+    "lat": 31.5285,
+    "lon": 74.488,
+    "source": "manual"
+  },
+  {
+    "name": "The Trust School, Ghazi Road",
+    "zone": "Batapur",
+    "lat": 31.541,
+    "lon": 74.501,
+    "source": "manual"
+  },
+  {
+    "name": "Government Primary School, Batapur",
+    "zone": "Batapur",
+    "lat": 31.5375,
+    "lon": 74.4915,
+    "source": "manual"
+  },
+  {
+    "name": "Comprehensive School, Ghaziabad",
+    "zone": "Batapur",
+    "lat": 31.5245,
+    "lon": 74.484,
+    "source": "manual"
+  }
+]
