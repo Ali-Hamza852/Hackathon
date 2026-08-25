@@ -17,7 +17,7 @@ def test_render_bulletin_pdf_bytes_produces_a_real_pdf(seeded_scores):
 
 def test_render_bulletin_pdf_bytes_returns_none_on_render_failure(seeded_scores):
     with patch.object(
-        generate_bulletin, "_render_html_to_pdf_bytes", side_effect=OSError("missing native library")
+        generate_bulletin, "_build_pdf", side_effect=OSError("unexpected render failure")
     ):
         result = render_bulletin_pdf_bytes(seeded_scores, seeded_scores[0].score_date.isoformat())
 
@@ -59,7 +59,7 @@ def test_does_not_write_a_file_when_rendering_fails(db_session, seeded_scores, t
     settings = Settings(bulletin_storage_dir=str(tmp_path))
 
     with patch.object(
-        generate_bulletin, "_render_html_to_pdf_bytes", side_effect=OSError("missing native library")
+        generate_bulletin, "_build_pdf", side_effect=OSError("unexpected render failure")
     ):
         on_scores_computed(db_session, seeded_scores, settings)
 

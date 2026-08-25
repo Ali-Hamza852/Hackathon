@@ -24,3 +24,4 @@ build/
 frontend/.env
 frontend/.env.local
 fly.toml.bak
+.vercel
