@@ -1,0 +1,12 @@
+frontend
+backend/.venv
+backend/tests
+backend/*.db
+backend/bulletins
+distribution/tests
+docs
+.github
+Dockerfile
+.dockerignore
+render.yaml
+*.md

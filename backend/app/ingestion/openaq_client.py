@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
 from app.config import Settings
@@ -13,6 +14,7 @@ LOCATIONS_URL = "https://api.openaq.org/v3/locations"
 LATEST_URL_TEMPLATE = "https://api.openaq.org/v3/locations/{location_id}/latest"
 PM25_PARAMETER_ID = 2
 STALE_STATION_MAX_AGE_HOURS = 48
+MAX_CONCURRENT_LOOKUPS = 10
 
 
 def fetch_locations_in_bounds(
@@ -29,15 +31,18 @@ def fetch_locations_in_bounds(
     }
     locations = get_json(PROVIDER_NAME, LOCATIONS_URL, params=params, headers=headers).get("results", [])
 
-    readings = []
-    for location in locations:
+    def safe_lookup(location: dict) -> StationReading | None:
         try:
-            reading = _reading_for_location(location, headers)
+            return _reading_for_location(location, headers)
         except (AQIProviderError, KeyError, ValueError, TypeError):
-            continue
-        if reading is not None:
-            readings.append(reading)
-    return readings
+            return None
+
+    if not locations:
+        return []
+
+    with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_LOOKUPS) as pool:
+        results = pool.map(safe_lookup, locations)
+    return [reading for reading in results if reading is not None]
 
 
 def _reading_for_location(location: dict, headers: dict) -> StationReading | None:

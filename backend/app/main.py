@@ -1,11 +1,10 @@
+import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
-from app.api import routes_schools, routes_scores, routes_subscribers
+from app.api import routes_bulletins, routes_schools, routes_scores, routes_subscribers
 from app.config import get_settings
 from app.db.session import init_db
 from app.distribution_wiring import register_distribution_hooks
@@ -13,14 +12,18 @@ from app.jobs.scheduler import start_scheduler
 
 settings = get_settings()
 
+RUNNING_ON_VERCEL = bool(os.environ.get("VERCEL"))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     register_distribution_hooks()
-    app.state.scheduler = start_scheduler()
+    if not RUNNING_ON_VERCEL:
+        app.state.scheduler = start_scheduler()
     yield
-    app.state.scheduler.shutdown(wait=False)
+    if not RUNNING_ON_VERCEL:
+        app.state.scheduler.shutdown(wait=False)
 
 
 app = FastAPI(
@@ -40,6 +43,7 @@ app.add_middleware(
 app.include_router(routes_schools.router)
 app.include_router(routes_scores.router)
 app.include_router(routes_subscribers.router)
+app.include_router(routes_bulletins.router)
 
 try:
     from distribution.whatsapp.bot import router as whatsapp_router
@@ -47,10 +51,6 @@ try:
     app.include_router(whatsapp_router)
 except ImportError:
     pass
-
-bulletin_dir = Path(settings.bulletin_storage_dir)
-bulletin_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/bulletins", StaticFiles(directory=str(bulletin_dir)), name="bulletins")
 
 
 @app.get("/health", tags=["system"])

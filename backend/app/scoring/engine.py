@@ -71,8 +71,6 @@ def run_scoring_job(db: Session, settings: Settings) -> list[Score]:
         scores.append(score)
 
     db.commit()
-    for score in scores:
-        db.refresh(score)
     return scores
 
 

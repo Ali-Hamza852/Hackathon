@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from playwright.sync_api import sync_playwright
 from sqlalchemy.orm import Session
 
 from app.config import Settings
@@ -26,24 +25,32 @@ _jinja_env = Environment(
 )
 
 
+def render_bulletin_pdf_bytes(scores: list[Score], bulletin_date: str) -> bytes | None:
+    try:
+        html = _render_html(scores, bulletin_date)
+        return _render_html_to_pdf_bytes(html)
+    except Exception:
+        logger.exception("failed to render PDF bulletin for %s", bulletin_date)
+        return None
+
+
 def on_scores_computed(db: Session, scores: list[Score], settings: Settings) -> None:
     if not scores:
-        logger.info("no scores computed this cycle, skipping PDF bulletin generation")
+        logger.info("no scores computed this cycle, skipping PDF bulletin pre-render")
         return
 
     bulletin_date = scores[0].score_date
+    pdf_bytes = render_bulletin_pdf_bytes(scores, bulletin_date.isoformat())
+    if pdf_bytes is None:
+        return
 
     try:
         output_dir = Path(settings.bulletin_storage_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"{bulletin_date.isoformat()}.pdf"
-        html = _render_html(scores, bulletin_date.isoformat())
-        _render_html_to_pdf(html, output_path)
-    except Exception:
-        logger.exception("failed to render PDF bulletin for %s", bulletin_date)
-        return
-
-    logger.info("PDF bulletin generated at %s", output_path)
+        (output_dir / f"{bulletin_date.isoformat()}.pdf").write_bytes(pdf_bytes)
+    except OSError:
+        logger.info("bulletin storage isn't writable here (expected on serverless) - "
+                    "the dashboard renders it on demand from the API instead")
 
 
 def _render_html(scores: list[Score], bulletin_date: str) -> str:
@@ -72,12 +79,7 @@ def _group_by_zone(scores: list[Score]) -> dict[str, list[dict[str, str | int]]]
     return dict(sorted(zones.items()))
 
 
-def _render_html_to_pdf(html: str, output_path: Path) -> None:
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
-        try:
-            page = browser.new_page()
-            page.set_content(html, wait_until="load")
-            page.pdf(path=str(output_path), format="A4", print_background=True)
-        finally:
-            browser.close()
+def _render_html_to_pdf_bytes(html: str) -> bytes:
+    from weasyprint import HTML
+
+    return HTML(string=html, base_url=str(TEMPLATE_DIR)).write_pdf()
