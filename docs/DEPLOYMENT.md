@@ -1,52 +1,75 @@
 # Deploying SAANS
 
-Backend: **Render** (free web service, no credit card). Database: **Neon** (free Postgres, no credit card, permanent free tier — this is what makes Render's lack of a persistent disk a non-issue). Frontend: **Vercel** (free). Scheduled runs: a **GitHub Actions cron** hitting `/admin/recompute`, because Render's free web service sleeps after 15 minutes of inactivity and the in-process APScheduler can't fire while asleep.
+Backend: **Vercel** (Python serverless function). Frontend: **Vercel** (static Vite build). Database: **Neon** (free Postgres, no credit card, scales to zero when idle). Scheduled runs: a **GitHub Actions cron** hitting `/admin/recompute`, because a serverless function has no long-lived process for an in-process APScheduler to run in.
 
-Fly.io and Railway were considered and ruled out — both now require a card on file even for their free/trial tiers, as of August 2026.
+Render, Fly.io, and Railway were all tried first and ruled out — every one of them now requires a card on file even for its free/trial tier, as of August 2026. WeasyPrint was tried for PDF generation and ruled out too — its native C dependencies (Pango/Cairo/GDK-Pixbuf) aren't present in Vercel's Python runtime, so bulletin generation uses `fpdf2` instead, which is pure-Python-wheel and works there.
+
+Backend and frontend are **two separate Vercel projects** (`saans-backend`, `saans-frontend`) sharing one git repo. That split, and how each project's Root Directory is configured, is the single most important thing to get right — see the pitfalls section below before touching project settings.
 
 ## 1. Database — Neon
 
 1. Sign up at neon.com (no card).
-2. Create a project. Copy the connection string it gives you — it looks like `postgresql://user:pass@ep-something.neon.tech/dbname?sslmode=require`. Hand it to me as-is; the backend normalizes the `postgresql://`/`postgres://` scheme to the driver it needs (`postgresql+psycopg://`) automatically, no edits needed.
+2. Create a project. Copy the connection string — `postgresql://user:pass@ep-something.neon.tech/dbname?sslmode=require`. The backend normalizes `postgresql://`/`postgres://` to the driver it actually needs (`postgresql+psycopg://`) automatically in [session.py](../backend/app/db/session.py), no edits needed.
 
-## 2. Backend — Render
+## 2. Backend — Vercel (`saans-backend` project)
 
-1. Sign up at render.com (no card), connect your GitHub account, grant it access to `Ali-Hamza852/Hackathon`.
-2. New → Web Service → pick this repo. Render will detect `render.yaml` at the repo root and offer to use it as a Blueprint — accept that; it's already configured for the Docker build (`Dockerfile` builds `backend/` + `distribution/` together) and the free plan.
-3. When prompted for the env vars marked `sync: false` in `render.yaml`, fill in:
-   - `DATABASE_URL` — the Neon connection string from step 1.
-   - `ADMIN_RECOMPUTE_SECRET` — any random string you choose.
-   - `WAQI_API_TOKEN` / `OPENAQ_API_KEY` — free, instant signup (aqicn.org/data-platform/token/, explore.openaq.org). Grab at least one so `/scores/today` shows real data instead of an empty array.
-   - `WHATSAPP_CLOUD_API_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_APP_SECRET` — from the Meta developer app (step 4 below); leave blank for now if not ready, the app runs fine without them (broadcasts just log as `skipped`).
-   - `FRONTEND_BASE_URL` — the Vercel URL from step 3, once you have it (comes after the frontend deploy — update and redeploy this var once you know it, otherwise the browser's CORS requests from the deployed frontend will be rejected).
-4. Deploy. Once live, seed the schools once — Render's dashboard has a Shell tab for the running service:
-   ```
-   PYTHONPATH=/app/backend python -c "from app.seed import seed_schools; print(seed_schools())"
-   ```
-5. Verify: `curl https://<your-service>.onrender.com/health`.
+The entrypoint is [api/index.py](../api/index.py) at the repo root: it puts `backend/` and the repo root on `sys.path`, then imports the real FastAPI `app` from `backend/app/main.py`. Root-level [vercel.json](../vercel.json) is what wires that entrypoint up:
 
-## 3. Frontend — Vercel
+```json
+{
+  "functions": { "api/index.py": { "maxDuration": 60 } },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index.py" }]
+}
+```
 
-1. `vercel link` (or use a Vercel token non-interactively).
-2. Set `VITE_BACKEND_BASE_URL=https://<your-service>.onrender.com` as a Vercel project env var.
-3. `vercel --prod`.
-4. Go back to Render and set `FRONTEND_BASE_URL` to the real Vercel URL, then redeploy the backend so CORS allows it.
-5. Load the Vercel URL from a phone on mobile data, not just the deploy machine's network.
+Steps:
+1. `vercel project add saans-backend` (or create it from the dashboard, connected to `Ali-Hamza852/Hackathon`).
+2. This project's **Root Directory must be the repo root** (`.` / unset) — it needs `api/index.py`, `backend/`, and the root `vercel.json` all visible in the same build.
+3. Set project env vars (`vercel env add --project saans-backend <NAME> production`, or the dashboard):
+   - `DATABASE_URL` — the Neon connection string.
+   - `ADMIN_RECOMPUTE_SECRET` — any random string you choose; the GitHub Actions cron needs the same value.
+   - `WAQI_API_TOKEN` / `OPENAQ_API_KEY` — free, instant signup (aqicn.org/data-platform/token/, explore.openaq.org). At least one is needed for `/scores/today` to return real data instead of an empty array.
+   - `WHATSAPP_CLOUD_API_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` / `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_APP_SECRET` — from the Meta developer app (step 5 below); leave unset for now, broadcasts just log as `skipped` until they're added, no code change needed later.
+   - `FRONTEND_BASE_URL` — the real `saans-frontend` production URL (step 3), so backend CORS accepts requests from it.
+4. Deploy: `vercel --prod --project saans-backend --yes` from the repo root.
+5. Seed the schools once — either run `PYTHONPATH=backend python -c "from app.seed import seed_schools; print(seed_schools())"` against the Neon `DATABASE_URL` locally, or add a temporary one-off admin route; there's no shell access on a serverless deploy.
+6. Verify: `curl https://saans-backend.vercel.app/health` and `/scores/today`.
+
+## 3. Frontend — Vercel (`saans-frontend` project)
+
+The frontend is a plain Vite/React static build living in `frontend/`. It does **not** use the root `vercel.json` at all — it needs its own Root Directory setting.
+
+Steps:
+1. `vercel project add saans-frontend` (or create it from the dashboard, same repo).
+2. This project's **Root Directory must be `frontend`** — set via the dashboard (Settings → General → Root Directory), or by deploying from inside the `frontend/` folder directly (`cd frontend && vercel --prod --project saans-frontend --yes`), which is the more reliable option — see pitfall below.
+3. Set `VITE_BACKEND_BASE_URL=https://saans-backend.vercel.app` as a project env var (`vercel env add --project saans-frontend VITE_BACKEND_BASE_URL production --value "https://saans-backend.vercel.app"`). It's a Vite build-time var with no fallback in [client.ts](../frontend/src/api/client.ts), so a rebuild is required any time it changes.
+4. Deploy: `cd frontend && vercel --prod --project saans-frontend --yes`.
+5. Update `FRONTEND_BASE_URL` on the backend project (step 2.3 above) to this real URL and redeploy the backend, so CORS allows it.
+6. Load the Vercel URL from a phone on mobile data, not just the deploy machine's network.
+
+## Deployment pitfalls actually hit in production (read this before touching `vercel.json` or project settings)
+
+These caused a real outage once and are easy to reintroduce silently, since nothing in CI catches them:
+
+- **Never add a `services` key (or an object-shaped `rewrites[].destination`) to `vercel.json`.** It isn't a documented Vercel schema for defining functions. Worse, if it's ever deployed even once, Vercel **persists `"services"` as the project's Framework Preset** in that project's settings — so even reverting `vercel.json` back to the correct `functions`/rewrites shape isn't enough; the deploy will still fail with `Project framework is set to "services", but no services are declared` until the Framework Preset is explicitly reset (`PATCH /v9/projects/<id>` with `{"framework": null}` via the Vercel API, or the dashboard's Framework Preset dropdown).
+- **`saans-frontend`'s Root Directory must point at `frontend/`, not the repo root.** If it's ever unset/root, the project builds and serves the *backend's* `vercel.json`/`api/index.py` instead of the Vite app — the live symptom is the frontend URL returning FastAPI's own `{"detail":"Not Found"}` JSON instead of the dashboard. The most reliable fix is deploying from inside `frontend/` (`cd frontend && vercel --prod --project saans-frontend`) rather than trusting a dashboard Root Directory setting to stick.
+- **Always pass `--project <name>` explicitly on every `vercel` CLI command.** The ambient `.vercel/project.json` link file at the repo root can silently point at the wrong project (it's tracked which project you last ran `vercel link` against, not which one you mean right now), and running a bare `vercel` command from the wrong directory can clobber it or deploy to the wrong target.
+- **`.vercelignore` at the repo root excludes `frontend/`** (it's written for the backend project's upload). That means you cannot deploy `saans-frontend` with Root Directory set to a `frontend` subdirectory while running the CLI from the repo root — the upload never contains that folder. Deploying from inside `frontend/` sidesteps this entirely.
 
 ## 4. Scheduled scoring runs — GitHub Actions
 
-Render's free web service sleeps after 15 minutes idle, so the backend's own 6am/midday `APScheduler` cron can't be relied on to fire — it only runs while the process happens to be awake. `.github/workflows/scheduled-recompute.yml` covers this: it hits `POST /admin/recompute` at 6:00 and 12:00 Asia/Karachi time (01:00 and 07:00 UTC), which both wakes the sleeping service and runs the real scoring cycle end-to-end (including the PDF and WhatsApp hooks).
+A serverless function has no persistent process, so the backend's in-process `APScheduler` never fires on its own in production — [main.py](../backend/app/main.py) gates it behind `RUNNING_ON_VERCEL` and skips starting it there. `.github/workflows/scheduled-recompute.yml` covers this instead: it hits `POST /admin/recompute` at 6:00 and 12:00 Asia/Karachi time (01:00 and 07:00 UTC), running the real scoring cycle end-to-end (including the PDF and WhatsApp hooks).
 
-Add two repository secrets (Settings → Secrets and variables → Actions):
-- `SAANS_BACKEND_URL` — `https://<your-service>.onrender.com`
-- `SAANS_ADMIN_SECRET` — the same value as `ADMIN_RECOMPUTE_SECRET` on Render
+Repository secrets (Settings → Secrets and variables → Actions):
+- `SAANS_BACKEND_URL` — `https://saans-backend.vercel.app`
+- `SAANS_ADMIN_SECRET` — the same value as `ADMIN_RECOMPUTE_SECRET` on the backend
 
-You can also trigger it manually anytime from the Actions tab (`workflow_dispatch`) instead of waiting for the schedule — useful for a live demo.
+You can also trigger it manually anytime from the Actions tab (`workflow_dispatch`) instead of waiting for the schedule.
 
 ## 5. WhatsApp Cloud API sandbox (manual, Meta account required)
 
 1. Create a Meta developer app at developers.facebook.com, add the WhatsApp product, and grab the temporary access token + test phone number ID from the app dashboard, plus the app's secret (Settings → Basic → App Secret) for `WHATSAPP_APP_SECRET`.
-2. Set the webhook callback URL to `https://<your-service>.onrender.com/whatsapp/webhook` and the verify token to whatever you set as `WHATSAPP_VERIFY_TOKEN` — Meta hits the `GET` handshake on save.
+2. Set the webhook callback URL to `https://saans-backend.vercel.app/whatsapp/webhook` and the verify token to whatever you set as `WHATSAPP_VERIFY_TOKEN` — Meta hits the `GET` handshake on save.
 3. Subscribe the webhook to the `messages` field.
 4. Send `SUBSCRIBE <school name>` from a test number to the sandbox number to confirm the subscribe flow works.
 
@@ -60,5 +83,5 @@ This is expected mid-build behavior, not a bug — dropping in a real key later 
 
 ## Known limitations of the free-tier stack (worth knowing, not blockers)
 
-- **Cold starts**: the first request after 15 minutes idle takes roughly a minute while Render wakes the service. The scheduled workflow above absorbs this with a 90s timeout and retries; a live demo click on `/admin/recompute` right after a quiet period will feel slow once, then be fast.
-- **Bulletin PDFs don't persist across restarts**: Render's free tier has no persistent disk, so generated PDFs live only until the next sleep/restart cycle (the DB is unaffected — that's on Neon). A fresh PDF regenerates on the next scoring cycle regardless, so this only matters if someone expects yesterday's PDF to still be downloadable.
+- **Cold starts**: Neon's compute scales to zero after 5 minutes idle, so the first query after a quiet period adds roughly a second while it wakes. Vercel functions themselves cold-start in well under that.
+- **Bulletin PDFs are rendered on demand, not stored**: [routes_bulletins.py](../backend/app/api/routes_bulletins.py) builds the PDF from the DB on every request rather than writing to disk, since a serverless function has no persistent disk between invocations. This means every `/bulletins/{date}.pdf` request re-renders — cheap (a few KB, sub-second), so this is a non-issue in practice, not a workaround to revisit.
