@@ -1,17 +1,10 @@
 {
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": {
-        "type": "service",
-        "service": "saans-backend"
-      }
-    }
-  ],
-  "services": {
-    "saans-backend": {
-      "root": ".",
-      "entrypoint": "api/index.py"
-    }
-  }
+    { "source": "/(.*)", "destination": "/api/index.py" }
+  ]
 }
